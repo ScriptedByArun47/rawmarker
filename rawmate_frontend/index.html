@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RawMate</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="header">
+    <h1><i class="cart">🛒</i> RawMate</h1>
+    <p class="tagline">Simplifying raw material transactions</p>
+  </header>
+
+  <main id="contentArea" class="card">
+    <div id="roleSelectionScreen">
+      <h2>Welcome to RawMate!</h2>
+      <p>Please enter your details to get started.</p>
+
+      <div id="startFormContainer">
+        <h3>Identify Yourself</h3>
+        <form id="startForm">
+          <label for="userName">Name:</label>
+          <input type="text" id="userName" required placeholder="Your Name" />
+
+          <label for="userEmail">Email:</label>
+          <input type="email" id="userEmail" required placeholder="your@email.com" />
+
+          <label for="userRole">Role:</label>
+          <select id="userRole" required>
+            <option value="">Select your role</option>
+            <option value="vendor">Vendor</option>
+            <option value="supplier">Supplier</option>
+          </select>
+
+          <label for="userLocation">Location (Optional):</label>
+          <input type="text" id="userLocation" placeholder="e.g., Chennai, Tamil Nadu" />
+
+          <div style="margin-top: 1rem;">
+            <button type="submit">Start RawMate</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="dynamicContent" style="display: none;">
+      <nav class="button-bar" id="dynamicNavBar">
+        </nav>
+      <div class="location-status">
+        <strong>Your Role:</strong> <span id="currentRoleText">N/A</span> |
+        <strong>Logged In As:</strong> <span id="currentUserNameText">N/A</span> |
+        <strong>Location:</strong> <span id="locationText">Not detected</span>
+      </div>
+      <div id="mainContentArea" class="card" style="box-shadow: none;">
+        <p>Select an option from the navigation bar.</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="http://localhost:5000/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
