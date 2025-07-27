@@ -1,21 +1,22 @@
 // server.js (Full Code - NO AUTHENTICATION VERSION)
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+import express from 'express';
+import http from 'http';
+import { Server as SocketIoServer } from 'socket.io'; // Import Server as SocketIoServer to avoid name clash
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import fetch from 'node-fetch'; // For node-fetch, ensure you have v3 or higher installed for ESM support.
 
-// Import database connection and models
-const connectDB = require('./config/db');
-const Group = require('./models/Group');
-const JoinRequest = require('./models/JoinRequest');
-const ChatMessage = require('./models/ChatMessage');
-const User = require('./models/User'); // User model is still needed for role/name/location
-const OrderRequest = require('./models/OrderRequest'); // New OrderRequest model
+// Import database connection and models (assuming these models are also set up for ESM exports)
+import connectDB from './config/db.js'; // Added .js extension for ESM
+import Group from './models/Group.js';
+import JoinRequest from './models/JoinRequest.js';
+import ChatMessage from './models/ChatMessage.js';
+import User from './models/User.js';
+import OrderRequest from './models/OrderRequest.js';
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
+const io = new SocketIoServer(server, { // Use the imported SocketIoServer
     cors: {
         origin: "http://127.0.0.1:5500", // Allow your frontend origin
         methods: ["GET", "POST", "PUT", "DELETE"]
@@ -274,8 +275,8 @@ app.get('/api/supplier/order-requests/:supplierId', async (req, res) => {
     // User role check is done on the frontend. Backend assumes correct ID is passed.
     try {
         const requests = await OrderRequest.find({ supplierId: supplierId })
-                                           .populate('vendorId', 'name email location') // Populate vendor details
-                                           .sort({ createdAt: -1 }); // Latest first
+                                       .populate('vendorId', 'name email location') // Populate vendor details
+                                       .sort({ createdAt: -1 }); // Latest first
         res.json(requests);
     } catch (error) {
         console.error("Error fetching supplier's order requests:", error);
@@ -319,12 +320,67 @@ app.get('/api/vendor/my-order-requests/:vendorId', async (req, res) => {
     const { vendorId } = req.params;
     try {
         const requests = await OrderRequest.find({ vendorId: vendorId })
-                                           .populate('supplierId', 'name email location') // Populate supplier details
-                                           .sort({ createdAt: -1 });
+                                       .populate('supplierId', 'name email location') // Populate supplier details
+                                       .sort({ createdAt: -1 });
         res.json(requests);
     } catch (error) {
         console.error("Error fetching vendor's order requests:", error);
         res.status(500).json({ message: 'Failed to fetch your order requests', error: error.message });
+    }
+});
+
+// --- NEW: Market Price Endpoint ---
+app.get('/api/market-prices', async (req, res) => {
+    const { state, city, commodity } = req.query; // Added commodity to query parameters
+
+    if (!state || !city || !commodity) {
+        return res.status(400).json({ message: 'State, city, and commodity are required for market prices.' });
+    }
+
+    console.log(`Fetching market prices for: Commodity=${commodity}, City=${city}, State=${state}`);
+
+    try {
+        const apiKey = '579b464db66ec23bdd00000133e6037fd70f4a454eafa5be9f4e0bd5';
+        const externalApiUrl = `https://api.data.gov.in/resource/35985678-0d79-46b4-9ed6-6f13308a1d24?api-key=${apiKey}&format=json`; // Use the full API URL from data.gov.in
+
+        const apiResponse = await fetch(externalApiUrl); 
+        
+        if (!apiResponse.ok) {
+            const errorText = await apiResponse.text();
+            throw new Error(`External API error: ${apiResponse.status} - ${errorText}`);
+        }
+        
+        const apiData = await apiResponse.json();
+
+        // Data.gov.in API often returns data in 'records' array
+        // We need to filter by state, city, and commodity as these are not direct query params for this specific resource.
+        const filteredData = apiData.records.filter(item => {
+            // Assuming 'state' and 'district' fields exist in the API response and map to your `state` and `city`
+            // You may need to inspect the actual API response to confirm field names like 'state', 'district', 'commodity', 'market', 'min_price', 'max_price', 'modal_price', 'unit'
+            return item.state && item.state.toLowerCase() === state.toLowerCase() &&
+                   item.district && item.district.toLowerCase() === city.toLowerCase() &&
+                   item.commodity && item.commodity.toLowerCase() === commodity.toLowerCase();
+        });
+
+        // Transform the filtered data into your desired format
+        const transformedData = filteredData.map(item => ({
+            commodity: item.commodity,
+            market: item.market, 
+            minPrice: parseFloat(item.min_price), 
+            maxPrice: parseFloat(item.max_price),
+            modalPrice: parseFloat(item.modal_price),
+            unit: item.unit || "₹/Quintal" 
+        }));
+        
+        if (transformedData.length === 0) {
+            return res.status(404).json({ message: 'No market prices found for the specified commodity, state, and city.' });
+        }
+
+        res.json(transformedData);
+
+    } catch (error) {
+        console.error("Error fetching market prices:", error);
+        res.status(500).json({ message: 'Failed to fetch market prices from external source', error: error.message });
     }
 });
 
